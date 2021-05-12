@@ -408,27 +408,53 @@ function doUpdateQMTally(caseData){
 
 }
 
-function checkShit() {
-  const getLastRowSpecial = (range) => {
-    let rowNum = 0;
-    let blank = false;
-    for(row = 0; row < range.length; row++){
-  
-      if(range[row][0] === "" && !blank){
-        rowNum = row;
-        blank = true;
-      }else if(range[row][0] !== ""){
-        blank = false;
-      };
-    };
-    return rowNum;
-  }
+function _getLastRowSpecial(range) {
+  let rowNum = 0;
+  let blank = false;
+  for(row = 0; row < range.length; row++){
 
+    if(range[row][0] === "" && !blank){
+      rowNum = row;
+      blank = true;
+    }else if(range[row][0] !== ""){
+      blank = false;
+    };
+  };
+  return rowNum;
+}
+
+function checkShit() {
   const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
   // const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC");
-  const lastRow = getLastRowSpecial(columnToCheck);
+  const lastRow = _getLastRowSpecial(columnToCheck);
 
   console.log(lastRow,columnToCheck)
+}
+
+function getRecentSubmittedSID() {
+  const studyIDColumn = 25;
+  const lastNumberValue = 30;
+  const columnNumber = 3;
+  let data = {}
+
+  const rangeValues = MONITOR_LOGS_TAB.getRange('T:U').getValues();
+  const lastRowNumber = _getLastRowSpecial(rangeValues);
+  const lastRowMinusThirty = lastRowNumber != 0 ? (lastRowNumber-lastNumberValue) : 0;
+  const lastThirtyValues = MONITOR_LOGS_TAB.getRange(lastRowMinusThirty, studyIDColumn, lastNumberValue, columnNumber).getValues();
+  const filteredArray = lastThirtyValues.map(([studyID,,lastModifiedDate]) => {
+    let caseData = {};
+    let valueDate = getDateValue(lastModifiedDate)
+    let uniqueID = `${studyID}-${valueDate}`
+    return caseData = {
+      studyID,
+      valueDate,
+      uniqueID
+    }
+  })
+  return lastThirtyValues.length ? data = {
+    recentCases: filteredArray,
+    lastRowNumber
+  } : [];
 }
 
 
@@ -444,28 +470,12 @@ function doInsertToSPR(caseData) {
   // Prod
   // const DUMP_ID = "17gZg4NvVTcpQTHf1GcC5CoGsVYzzge5Bldk89V7Gxsc";
   
-
-
   // const TAB_NAME = "Monitor Logs";
   // const SPR_DUMP = SpreadsheetApp.openById(DUMP_ID);
   // const MONITOR_LOGS_TAB = SPR_DUMP.getSheetByName(TAB_NAME);
 
-  const getLastRowSpecial = (range) => {
-    let rowNum = 0;
-    let blank = false;
-    for(row = 0; row < range.length; row++){
-  
-      if(range[row][0] === "" && !blank){
-        rowNum = row;
-        blank = true;
-      }else if(range[row][0] !== ""){
-        blank = false;
-      };
-    };
-    return rowNum;
-  }
   const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
-  const lastRow = getLastRowSpecial(columnToCheck);
+  const lastRow = _getLastRowSpecial(columnToCheck);
   const ARData = caseData.map(c => {
     return [
       doIdentifyDate(c.lastModifiedDate),
