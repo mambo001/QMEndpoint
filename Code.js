@@ -431,28 +431,29 @@ function checkShit() {
   console.log(lastRow,columnToCheck)
 }
 
-function getRecentSubmittedSID() {
-  const studyIDColumn = 25;
+// Generate uniqueID using studyID,hyphen,caseID
+function doGenerateUniqueID(studyID, caseID) {
+  let newCID = caseID.includes('-') ? caseID.replace('-','') : caseID;
+  return `${studyID}-${newCID}`
+}
+
+function getRecentSubmittedSID(){
+  const scrapedStudyIDColumn = 30;
   const lastNumberValue = 30;
-  const columnNumber = 3;
+  const columnNumber = 2;
   let data = {}
 
-  const rangeValues = MONITOR_LOGS_TAB.getRange('T:U').getValues();
+  const rangeValues = MONITOR_LOGS_TAB.getRange('AD:AE').getValues();
   const lastRowNumber = _getLastRowSpecial(rangeValues);
   const lastRowMinusThirty = lastRowNumber != 0 ? (lastRowNumber-lastNumberValue) : 0;
-  const lastThirtyValues = MONITOR_LOGS_TAB.getRange(lastRowMinusThirty, studyIDColumn, lastNumberValue, columnNumber).getValues();
-  const filteredArray = lastThirtyValues.map(([studyID,,lastModifiedDate]) => {
-    let caseData = {};
-    let valueDate = getDateValue(lastModifiedDate)
-    let uniqueID = `${studyID}-${valueDate}`
-    return caseData = {
-      studyID,
-      valueDate,
-      uniqueID
-    }
-  })
-  return lastThirtyValues.length ? data = {
-    recentCases: filteredArray,
+  const lastThirtyValues = rangeValues.slice(lastRowMinusThirty, lastRowNumber);
+  const uniqueIDArray = lastThirtyValues.map(([studyID, caseID]) => doGenerateUniqueID(studyID, caseID));
+
+  // console.log(lastThirtyValues.length, {lastThirtyValues})
+  // console.log(uniqueIDArray.length, {uniqueIDArray})
+
+  return uniqueIDArray.length ? data = {
+    recentCasesUID: uniqueIDArray,
     lastRowNumber
   } : [];
 }
@@ -474,37 +475,80 @@ function doInsertToSPR(caseData) {
   // const SPR_DUMP = SpreadsheetApp.openById(DUMP_ID);
   // const MONITOR_LOGS_TAB = SPR_DUMP.getSheetByName(TAB_NAME);
 
-  const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
-  const lastRow = _getLastRowSpecial(columnToCheck);
-  const ARData = caseData.map(c => {
+  // const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
+  // const lastRow = _getLastRowSpecial(columnToCheck);
+  let data = {};
+  const { lastRowNumber, 'recentCasesUID':recentCasesUIDArray } = getRecentSubmittedSID();
+  console.log(lastRowNumber)
+ 
+
+  const submittedCasesUIDArray = caseData.map(e => {
+    return {
+      id: doGenerateUniqueID(e.studyID,e.caseID),
+      caseData: [
+        doIdentifyDate(e.lastModifiedDate),
+        e.studyID,
+        e.caseID,
+        e.caseRemarks,
+        e.assignedToLDAP,
+        e.ARAssignTime
+      ]
+    }
+  });
+
+  const finalData = submittedCasesUIDArray.filter(({ id }) => {
+    if (recentCasesUIDArray == undefined) return id
+    return recentCasesUIDArray ? !recentCasesUIDArray.includes(id) : id
+  })
+  // { finalData: [ { id: '3057770-45312000031246', caseData: [Object] } ] }
+  const finalCaseData = finalData.map(({caseData}) => {
+    let [ 
+      lastModifiedDate,
+      studyID,
+      caseID,
+      caseRemarks,
+      assignedToLDAP,
+      ARAssignTime
+    ] = caseData;
+
     return [
-      doIdentifyDate(c.lastModifiedDate),
-      c.studyID,
-      c.caseID,
-      c.caseRemarks
+      lastModifiedDate,
+      studyID,
+      caseID,
+      caseRemarks
     ]
   });
 
-  console.log(columnToCheck, lastRow)
+  const finalPrioData = finalData.map(({caseData}) => {
+    let [ 
+      lastModifiedDate,
+      studyID,
+      caseID,
+      caseRemarks,
+      assignedToLDAP,
+      ARAssignTime
+    ] = caseData;
 
-  // TODO
-  // Refactor setvalue of columns
-  // with formulas, i.e., line 348
-  const assignData = caseData.map(c => {
     return [
-      c.assignedToLDAP,
-      c.caseID,
-      c.ARAssignTime
+      assignedToLDAP,
+      caseID,
+      ARAssignTime
     ]
   });
 
-  // Add Cases from RB
-  MONITOR_LOGS_TAB.getRange(lastRow + 1, 29, ARData.length, 4).setValues(ARData);
+  console.log({recentCasesUIDArray}, {submittedCasesUIDArray}, {finalData}, {finalCaseData}, {finalPrioData})
 
-  MONITOR_LOGS_TAB.getRange(lastRow + 1, 5, assignData.length, assignData[0].length).setValues(assignData);
-  // MONITOR_LOGS_TAB.getRange()
+  if (finalCaseData.length && finalPrioData.length) {
+    console.log(finalCaseData.length, finalPrioData.length)
 
-  return true
+    // Add Cases from RB
+    MONITOR_LOGS_TAB.getRange(lastRowNumber + 1, 29, finalCaseData.length, 4).setValues(finalCaseData);
+
+    // Add assigned LDAPs
+    MONITOR_LOGS_TAB.getRange(lastRowNumber + 1, 5, finalPrioData.length, finalPrioData[0].length).setValues(finalPrioData);
+    
+    return true
+  } else return false
 }
 
 
