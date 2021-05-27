@@ -372,7 +372,9 @@ function doUpdateQMTally(caseData){
   }
 
   const getTally = (data) => {
-    let ldap = data.map(e => e.assignedToLDAP);
+    let ldap = data
+      .map(e => e.assignedToLDAP)
+      .filter(e => e != '');
     let tally = ldap.reduce((map, val) => {
         map[val] = (map[val] || 0)+1; return map
       }, {} 
@@ -475,8 +477,8 @@ function doInsertToSPR(caseData) {
   // const SPR_DUMP = SpreadsheetApp.openById(DUMP_ID);
   // const MONITOR_LOGS_TAB = SPR_DUMP.getSheetByName(TAB_NAME);
 
-  // const columnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
-  // const lastRow = _getLastRowSpecial(columnToCheck);
+  const RBColumnToCheck = MONITOR_LOGS_TAB.getRange("AC:AC").getValues();
+  const lastRow = _getLastRowSpecial(RBColumnToCheck);
   let data = {};
   const { lastRowNumber, 'recentCasesUID':recentCasesUIDArray } = getRecentSubmittedSID();
   console.log(lastRowNumber)
@@ -535,6 +537,20 @@ function doInsertToSPR(caseData) {
       ARAssignTime
     ]
   });
+  // const finalPrioData = finalData.map(({caseData}) => {
+  //   let [ 
+  //     lastModifiedDate,
+  //     studyID,
+  //     caseID,
+  //     caseRemarks,
+  //     assignedToLDAP,
+  //     ARAssignTime
+  //   ] = caseData;
+
+  //   return [
+  //     assignedToLDAP
+  //   ]
+  // });
 
   console.log({recentCasesUIDArray}, {submittedCasesUIDArray}, {finalData}, {finalCaseData}, {finalPrioData})
 
@@ -545,7 +561,7 @@ function doInsertToSPR(caseData) {
     MONITOR_LOGS_TAB.getRange(lastRowNumber + 1, 29, finalCaseData.length, 4).setValues(finalCaseData);
 
     // Add assigned LDAPs
-    MONITOR_LOGS_TAB.getRange(lastRowNumber + 1, 5, finalPrioData.length, finalPrioData[0].length).setValues(finalPrioData);
+    MONITOR_LOGS_TAB.getRange(lastRow + 1, 5, finalPrioData.length, finalPrioData[0].length).setValues(finalPrioData);
     
     return true
   } else return false
